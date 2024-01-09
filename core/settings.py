@@ -40,6 +40,7 @@ ALLOWED_HOSTS = [
     SITEURL,
     "localhost",
     "http://localhost:8000",
+    "*"
 ]
 
 
@@ -245,4 +246,5 @@ CORS_ALLOWED_ORIGINS = [
     "https://gisedu.itc.utwente.nl",
     "http://localhost",
     "http://127.0.0.1",
+    "*"
 ]

@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.8
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y python3-dev gcc libc-dev
@@ -33,7 +33,7 @@ RUN pip install GDAL==$(ogrinfo --version | cut -d' ' -f2 | cut -d',' -f1)
 ADD ./ /home/app/
 ADD ./docker /home/app/docker
 
-RUN pip install /home/app/docker/app/ilwispy-1.0-cp39-cp39-linux_x86_64.whl
+RUN pip install /home/app/docker/app/ilwis-1.0.20230929-cp38-cp38-linux_x86_64.whl
 
 RUN chmod +x /home/app/docker/app/server-entrypoint.sh
 RUN chmod +x /home/app/docker/app/worker-entrypoint.sh

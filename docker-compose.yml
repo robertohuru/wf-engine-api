@@ -16,13 +16,13 @@ services:
         networks:
             - wfms-network
         ports:
-            - "8000:8000"
+            - "${EXPOSED_DJANGO_PORT}:8000"
     worker:
         restart: unless-stopped
         build:
             context: ./
             dockerfile: ./docker/app/Dockerfile
-        entrypoint: /home/app/docker/worker-entrypoint.sh
+        entrypoint: /home/app/docker/app/worker-entrypoint.sh
         container_name: worker
         volumes:
           - './:/home/app'

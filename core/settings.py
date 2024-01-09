@@ -133,18 +133,14 @@ USE_L10N = True
 USE_TZ = False
 
 
-STATIC_URL = "/static/"
+STATIC_URL = "/services/static/"
 STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
-
-# STATIC_URL = os.getenv("STATIC_URL", "%s/static/" % FORCE_SCRIPT_NAME)
-
 _DEFAULT_STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
-
 STATICFILES_DIRS = os.getenv("STATICFILES_DIRS", _DEFAULT_STATICFILES_DIRS)
 
-MEDIA_URL = "/media/"
+MEDIA_URL = "/services/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
@@ -156,9 +152,9 @@ STATICFILES_FINDERS = (
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH")
-GEOS_LIBRARY_PATH = os.getenv("GEOS_LIBRARY_PATH")
-PROJ_LIB = os.getenv("PROJ_LIB")
+# GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH")
+# GEOS_LIBRARY_PATH = os.getenv("GEOS_LIBRARY_PATH")
+# PROJ_LIB = os.getenv("PROJ_LIB")
 
 MESSAGE_TAGS = {
     messages.DEBUG: "alert-info",
@@ -215,14 +211,8 @@ else:
 # ILWIS
 ILWIS_WORKING_DIR = os.getenv("ILWIS_WORKING_DIR")
 
-
-# Add the following at the end of the settings.py file
-
-CELERY_BROKER_URL = os.environ.get(
-    "CELERY_BROKER_URL", "redis://localhost:6379")
-CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", "redis://localhost:6379"
-)
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
 
 CHANNEL_LAYERS = {
     "default": {
@@ -233,9 +223,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-
-# CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-# CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
 
 # Celery Task Configuration
 CELERY_TASK_SERIALIZER = "json"  # Serializer for task messages

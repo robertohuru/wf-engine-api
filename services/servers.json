@@ -1,0 +1,51 @@
+{
+    "process": [
+        {
+            "name": "REST services",
+            "type": "REST",
+            "url": "https://mara.rangelands.itc.utwente.nl/api/rest"
+        },
+        {
+            "name": "ILWIS4 Operations",
+            "type": "ILWIS",
+            "url": "https://mara.rangelands.itc.utwente.nl/api/ilwisoperations"
+        },
+        {
+            "name": "AfriAlliance Server(WPS)",
+            "type": "WPS",
+            "url": "https://mara.rangelands.itc.utwente.nl/api/wps.py?"
+        },
+        {
+            "name": "Default server(WPS)",
+            "type": "WPS",
+            "url": "https://mara.rangelands.itc.utwente.nl/geoserver/ows?"
+        },        
+        {
+            "name": "MAMASE Server(WPS)",
+            "type": "WPS",
+            "url": "https://mara.rangelands.itc.utwente.nl/services/wps.py?"
+        }
+    ],
+    "data": [   
+        {
+            "name": "52North Server(SOS)",
+            "type": "SOS",
+            "url": "https://pegelonline.wsv.de/webservices/gis/gdi-sos?"
+        },	
+        {
+            "name": "Default Server(SOS)",
+            "type": "SOS",
+            "url": "https://mara.rangelands.itc.utwente.nl/services/sos.py?"
+        },
+        {
+            "name": "Default server(WCS)",
+            "type": "WCS",
+            "url": "https://mara.rangelands.itc.utwente.nl/geoserver/aa/ows?"
+        },        
+        {
+            "name": "Default Server(WFS)",
+            "type": "WFS",
+            "url": "https://gisedu.itc.utwente.nl/cgi-bin/mapserv.exe?map=d:/iishome/student/s1906240/WorkflowApp/http://localhost:8000/services/layers.map&version=2.0.0&"
+        }
+    ]
+}

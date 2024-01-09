@@ -1,0 +1,11 @@
+{
+	"geoserver": [
+        {
+            "host": "http://localhost:8080/geoserver",
+            "port": 8080,
+            "user": "admin",
+            "password": "admin"
+        }
+    ],
+	"developer": "robertohuru@gmail.com"
+}

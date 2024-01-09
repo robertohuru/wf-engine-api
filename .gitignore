@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test
+.pytest_cache/
+
+# Django stuff:
+*.log
+core/local_settings.py
+db.sqlite3
+
+# Environments
+.env.local
+.venv
+.venv/
+.env
+
+
+# VS Code stuff
+.vscode/
+
+Pipfile
+Pipfile.lock
+
+# media
+media/*
+
+# photos
+
+static/photos

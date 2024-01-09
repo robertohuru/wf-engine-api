@@ -59,7 +59,7 @@ services:
 networks:
   wfms-network:
     driver: bridge
-#    ipam:
-#      config:
-#        - subnet: 130.89.8.0/24
+    ipam:
+      config:
+        - subnet: 130.89.7.0/24
 

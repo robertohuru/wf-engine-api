@@ -5,7 +5,7 @@ import json
 from services.serializers import (
     WpsCapabilitySerializer, WfsCapabilitySerializer,
     WcsCapabilitySerializer, SosCapabilitySerializer, SosObservationsSerializer,
-    ServerSerializer, GeoJsonSerializer, ExecutionSerializer
+    ServerSerializer, GeoJsonSerializer, ExecutionSerializer, ServerCapabilitiesSerializer
 )
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission, IsAuthenticatedOrReadOnly, IsAuthenticated, SAFE_METHODS, IsAdminUser
@@ -90,7 +90,7 @@ class SosCapabilityViewSet(ViewSet):
     serializer_class = SosCapabilitySerializer
 
     def list(self, request):
-        name = request.GET.get("name", "University of Twente WCS")
+        name = request.GET.get("name", "University of Twente SOS")
         url = request.GET.get("url")
         limit = request.GET.get("limit", 100)
 
@@ -132,6 +132,71 @@ class ServerViewSet(ModelViewSet):
 
     def get_queryset(self):
         return Server.objects.all()
+
+
+class ServerCapabilitiesViewSet(ViewSet):
+    http_method_names = ["get"]
+
+    serializer_class = ServerCapabilitiesSerializer
+
+    def list(self, request):
+        name = request.GET.get("name", "University of Twente WPS")
+        servers = Server.objects.all()
+
+        results = []
+        for server in servers:
+            if server.is_process:
+                if server.type == "WPS":
+                    response = Util.getWpsProcesses(server.url, 100,  ":gs")
+                    if response:
+                        results.append(
+                            {
+                                "name": server.name,
+                                "records": response,
+                                "is_process": True,
+                                "type": "WPS",
+                                "url": server.url
+                            }
+                        )
+            else:
+                if server.type == "WCS":
+                    response = Util.getWcsCapabilities(server.url, 100)
+                    if response:
+                        results.append(
+                            {
+                                "name": server.name,
+                                "records": response,
+                                "is_process": False,
+                                "type": "WCS",
+                                "url": server.url
+                            }
+                        )
+                elif server.type == "WFS":
+                    response = Util.getWfsCapabilities(server.url, 100)
+                    if response:
+                        results.append(
+                            {
+                                "name": server.name,
+                                "records": response,
+                                "is_process": False,
+                                "type": "WFS",
+                                "url": server.url
+                            }
+                        )
+                elif server.type == "SOS":
+                    response = Util.getSosCapabilities(server.url, 100)
+                    if response:
+                        results.append(
+                            {
+                                "name": server.name,
+                                "records": response,
+                                "is_process": False,
+                                "type": "SOS",
+                                "url": server.url
+                            }
+                        )
+        serializer = ServerCapabilitiesSerializer(instance=results, many=True)
+        return Response(serializer.data)
 
 
 class GeoJsonViewSet(ViewSet):

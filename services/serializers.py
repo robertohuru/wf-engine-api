@@ -26,6 +26,14 @@ class SosCapabilitySerializer(serializers.Serializer):
     name = serializers.CharField()
 
 
+class ServerCapabilitiesSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    records = serializers.JSONField()
+    url = serializers.CharField()
+    name = serializers.CharField()
+    is_process = serializers.BooleanField()
+
+
 class SosObservationsSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     observations = serializers.JSONField()

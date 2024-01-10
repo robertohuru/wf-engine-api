@@ -6,7 +6,7 @@ services:
             context: ./
             dockerfile: ./docker/app/Dockerfile
         command: >
-            sh -c "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:8000 --timeout 600"
+            sh -c "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:8000 --timeout 3600"
         container_name: wfms-app
         restart: unless-stopped
         volumes:

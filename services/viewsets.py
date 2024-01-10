@@ -21,24 +21,41 @@ class ReadOnly(BasePermission):
 
 
 class WpsCapabilityViewSet(ViewSet):
-    permission_classes = [ReadOnly]
-
+    http_method_names = ["get", "post"]
+    # permission_classes = [ReadOnly]
     serializer_class = WpsCapabilitySerializer
 
     def list(self, request):
-        name = request.GET.get("name", "University of Twente WPS")
         url = request.GET.get("url")
-        dtype = request.GET.get("type")
-        # limit = request.GET.get("limit", 100)
-        prefix = request.GET.get("prefix", "gs:")
+        dtype = request.GET.get("resource")
+        identifier = request.GET.get("identifier")
         if dtype == "ILWIS":
             response = json.loads(requests.get(url).text)
         else:
-            response = Util.getWpsProcesses(url, 100, prefix)
+            response = Util.getWpsCapacilities(url, identifier)
         if response is None:
-            records = {"success": False, "operations": [], "name": name}
+            records = {"success": False, "operation": None}
         else:
-            records = {"success": True, "operations": response, "name": name}
+            records = {"success": True, "operation": response}
+
+        serializer = WpsCapabilitySerializer(instance=records, many=False)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], name='Get process metadata')
+    def metadata(self, request):
+        url = request.POST.get("url")
+        dtype = request.POST.get("resource")
+        identifier = request.POST.get("identifier")
+        if dtype == "ILWIS":
+            response = json.loads(requests.get(url).text)
+        elif dtype == "GeoServer":
+            response = "Geoserver"
+        else:
+            response = Util.getWpsCapacilities(url, identifier)
+        if not response:
+            records = {"success": False, "operation": None}
+        else:
+            records = {"success": True, "operation": response}
 
         serializer = WpsCapabilitySerializer(instance=records, many=False)
         return Response(serializer.data)
@@ -146,7 +163,7 @@ class ServerCapabilitiesViewSet(ViewSet):
         for server in servers:
             if server.is_process:
                 if server.type == "WPS":
-                    response = Util.getWpsProcesses(server.url, 100,  ":gs")
+                    response = Util.getWpsProcesses(server.url, 100,  "gs:")
                     if response:
                         results.append(
                             {

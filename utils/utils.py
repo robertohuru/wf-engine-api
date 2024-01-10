@@ -40,109 +40,120 @@ class Util:
                                ['wps:ProcessOfferings']['wps:Process'])
         else:
             gsProcesses = d['wps:Capabilities']['wps:ProcessOfferings']['wps:Process']
-
         for row in gsProcesses:
             identifier = row['ows:Identifier']
-            if len(processes) > limit or prefix not in identifier:
-                continue
 
-            process = {
+            if len(processes) > int(limit):
+                break
+            if prefix not in identifier:
+                continue
+            processes.append({
                 'id': identifier,
                 'metadata': {
                     'label':  identifier,
-                    'longname': row['ows:Title'], 'resource': 'WPS', 'url': url,
+                    'longname': row['ows:Title'],
+                    'resource': 'WPS',
+                    'url': url,
                     'description': row.get('ows:Abstract', '')
                 }
-            }
+            })
 
-            # Get process descriptions
-            response = requests.get(
-                url + "service=WPS&request=DescribeProcess&identifier=" + identifier)
-            response = xmltodict.parse(response.text)
-            json2 = json.dumps(response)
-            b = json.loads(json2)
-
-            inputs = []
-            if 'ProcessDescription' in b['wps:ProcessDescriptions']:
-                if isinstance(b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input'], dict):
-                    inputs = [b['wps:ProcessDescriptions']
-                              ['ProcessDescription']['DataInputs']['Input']]
-                elif isinstance(b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input'], list):
-                    inputs = b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input']
-
-            inputList = []
-            for i, item in enumerate(inputs):
-
-                input = {
-                    'id': i, 'identifier': item['ows:Identifier'], 'name':  item['ows:Title'],
-                    'url': '', 'value': '', 'optional': '@minOccurs' in item and item['@minOccurs'] == '0',
-                    'description': item.get('ows:Abstract', '')
-                }
-                if 'ComplexData' in item:
-                    if "text/xml" in str(item['ComplexData']['Default']['Format']['MimeType']) or "application/json" in str(item['ComplexData']['Default']['Format']['MimeType']):
-                        input['type'] = "geom"
-                    elif "image" in str(item['ComplexData']['Default']['Format']['MimeType']):
-                        input['type'] = "coverage"
-                    else:
-                        input['type'] = item['ComplexData']['Default']['Format']
-
-                if 'LiteralData' in item and item['LiteralData']:
-                    if 'ows:DataType' in item['LiteralData']:
-                        if '@ows:reference' in item['LiteralData']['ows:DataType']:
-                            input['type'] = item['LiteralData']['ows:DataType']['#text']
-                        else:
-                            input['type'] = item['LiteralData']['ows:DataType']
-                    elif 'ows:AllowedValues' in item['LiteralData']:
-                        input['type'] = '|'.join(
-                            item['LiteralData']['ows:AllowedValues']['ows:Value'])
-                    else:
-                        if '@ows:reference' in item['LiteralData']:
-                            input['type'] = item['LiteralData']['@ows:reference']
-                        else:
-                            input['type'] = "text"
-                inputList.append(input)
-            process['metadata']['inputparametercount'] = len(inputList)
-            process['inputs'] = inputList
-
-            if 'ProcessOutputs' not in b['wps:ProcessDescriptions']['ProcessDescription'] or 'Output' not in b['wps:ProcessDescriptions']['ProcessDescription']['ProcessOutputs']:
-                output = {'id': 0, 'identifier': '', 'name': '',
-                          'value': '', 'description': '', 'type': ''}
-                process['metadata']['outputparametercount'] = 1
-                process['outputs'] = [output]
-            else:
-                outputList = []
-                outputs = b['wps:ProcessDescriptions']['ProcessDescription']['ProcessOutputs']['Output']
-                if isinstance(outputs, dict):
-                    outputs = [outputs]
-
-                for i, item in enumerate(outputs):
-                    output = {
-                        'id': i, 'identifier': item['ows:Identifier'],
-                        'name': item['ows:Title'], 'value': "", 'description': item['ows:Title']
-                    }
-                    if 'ComplexOutput' in item:
-                        if "text/xml" in str(item['ComplexOutput']['Default']['Format']['MimeType']) or "application/json" in str(item['ComplexOutput']['Default']['Format']['MimeType']):
-                            output['type'] = "geom"
-                        elif "image" in str(item['ComplexOutput']['Default']['Format']['MimeType']):
-                            output['type'] = "coverage"
-                        else:
-                            output['type'] = item['ComplexOutput']['Default']['Format']
-
-                    if 'LiteralOutput' in item:
-                        if item['LiteralOutput'] is None:
-                            output['datatype'] = item['LiteralOutput']
-                        else:
-                            if 'ows:DataType' in item['LiteralOutput']:
-                                output['type'] = item['LiteralOutput']['ows:DataType']
-                            else:
-                                output['type'] = item['LiteralOutput']
-                    outputList.append(output)
-
-                process['metadata']['outputparametercount'] = len(outputList)
-                process['outputs'] = outputList
-
-            processes.append(process)
         return processes
+
+    @staticmethod
+    def getWpsCapacilities(url, identifier):
+        response = requests.get(
+            url + "service=WPS&request=DescribeProcess&identifier=" + identifier)
+        response = xmltodict.parse(response.text)
+        json2 = json.dumps(response)
+        b = json.loads(json2)
+
+        process = {
+            'id': identifier,
+            'metadata': {
+                'label':  identifier,
+            }
+        }
+
+        inputs = []
+        if 'ProcessDescription' in b['wps:ProcessDescriptions']:
+            if isinstance(b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input'], dict):
+                inputs = [b['wps:ProcessDescriptions']
+                          ['ProcessDescription']['DataInputs']['Input']]
+            elif isinstance(b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input'], list):
+                inputs = b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input']
+
+        inputList = []
+        for i, item in enumerate(inputs):
+
+            input = {
+                'id': i, 'identifier': item['ows:Identifier'], 'name':  item['ows:Title'],
+                'url': '', 'value': '', 'optional': '@minOccurs' in item and item['@minOccurs'] == '0',
+                'description': item.get('ows:Abstract', '')
+            }
+            if 'ComplexData' in item:
+                if "text/xml" in str(item['ComplexData']['Default']['Format']['MimeType']) or "application/json" in str(item['ComplexData']['Default']['Format']['MimeType']):
+                    input['type'] = "geom"
+                elif "image" in str(item['ComplexData']['Default']['Format']['MimeType']):
+                    input['type'] = "coverage"
+                else:
+                    input['type'] = item['ComplexData']['Default']['Format']
+
+            if 'LiteralData' in item and item['LiteralData']:
+                if 'ows:DataType' in item['LiteralData']:
+                    if '@ows:reference' in item['LiteralData']['ows:DataType']:
+                        input['type'] = item['LiteralData']['ows:DataType']['#text']
+                    else:
+                        input['type'] = item['LiteralData']['ows:DataType']
+                elif 'ows:AllowedValues' in item['LiteralData']:
+                    input['type'] = '|'.join(
+                        item['LiteralData']['ows:AllowedValues']['ows:Value'])
+                else:
+                    if '@ows:reference' in item['LiteralData']:
+                        input['type'] = item['LiteralData']['@ows:reference']
+                    else:
+                        input['type'] = "text"
+            inputList.append(input)
+        process['metadata']['inputparametercount'] = len(inputList)
+        process['inputs'] = inputList
+
+        if 'ProcessOutputs' not in b['wps:ProcessDescriptions']['ProcessDescription'] or 'Output' not in b['wps:ProcessDescriptions']['ProcessDescription']['ProcessOutputs']:
+            output = {'id': 0, 'identifier': '', 'name': '',
+                      'value': '', 'description': '', 'type': ''}
+            process['metadata']['outputparametercount'] = 1
+            process['outputs'] = [output]
+        else:
+            outputList = []
+            outputs = b['wps:ProcessDescriptions']['ProcessDescription']['ProcessOutputs']['Output']
+            if isinstance(outputs, dict):
+                outputs = [outputs]
+
+            for i, item in enumerate(outputs):
+                output = {
+                    'id': i, 'identifier': item['ows:Identifier'],
+                    'name': item['ows:Title'], 'value': "", 'description': item['ows:Title']
+                }
+                if 'ComplexOutput' in item:
+                    if "text/xml" in str(item['ComplexOutput']['Default']['Format']['MimeType']) or "application/json" in str(item['ComplexOutput']['Default']['Format']['MimeType']):
+                        output['type'] = "geom"
+                    elif "image" in str(item['ComplexOutput']['Default']['Format']['MimeType']):
+                        output['type'] = "coverage"
+                    else:
+                        output['type'] = item['ComplexOutput']['Default']['Format']
+
+                if 'LiteralOutput' in item:
+                    if item['LiteralOutput'] is None:
+                        output['datatype'] = item['LiteralOutput']
+                    else:
+                        if 'ows:DataType' in item['LiteralOutput']:
+                            output['type'] = item['LiteralOutput']['ows:DataType']
+                        else:
+                            output['type'] = item['LiteralOutput']
+                outputList.append(output)
+
+            process['metadata']['outputparametercount'] = len(outputList)
+            process['outputs'] = outputList
+        return process
 
     @staticmethod
     def getWfsCapabilities(url, limit=100):

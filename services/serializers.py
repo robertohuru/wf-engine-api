@@ -4,8 +4,7 @@ from services.models import Server
 
 class WpsCapabilitySerializer(serializers.Serializer):
     success = serializers.BooleanField()
-    operations = serializers.JSONField()
-    name = serializers.CharField()
+    operation = serializers.JSONField()
 
 
 class WfsCapabilitySerializer(serializers.Serializer):

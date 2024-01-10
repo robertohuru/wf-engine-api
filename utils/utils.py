@@ -445,6 +445,27 @@ class Util:
         return oper
 
     @staticmethod
+    def getOperationIndex(id, operations):
+        j = None
+        for i in range(0, len(operations)):
+            if operations[i]["id"] == id:
+                j = i
+                break
+        return j
+
+    @staticmethod
+    def getOperationByLabel(tool, label):
+        with open(settings.STATIC_ROOT + os.sep +
+                  "operations.json") as f:
+            json_data = f.read()
+            operations = json.loads(json_data)[tool]
+            oper = None
+            for operation in operations:
+                if operation['label'] == label:
+                    oper = operation
+            return oper
+
+    @staticmethod
     def executeOperation(operation):
         output = ""
         if operation["metadata"]["resource"] == "WPS":
@@ -823,3 +844,515 @@ class Util:
             sldFile.write(xml)
             sldFile.close()
             return settings.MEDIA_ROOT + os.path.sep + sldName + ".xml"
+
+    @staticmethod
+    def piwToQgisWorkflow(workflowJSON):
+        qgisJSON = {}
+        values = {}
+        # Workflow inputs
+        inputs = {}
+        algos = {}
+        for operation in workflowJSON['workflows'][0]['operations']:
+            consoleName = operation['metadata']['url']
+            first = Util.searchOperation(
+                "QGIS", operation['metadata']['longname'].lower())
+            second = Util.searchOperation(
+                "QGIS", operation['metadata']['description'].lower())
+            third = Util.searchOperation(
+                "QGIS", operation['metadata']['label'].lower())
+
+            all = {first["hits"]: first, second["hits"]                   : second, third["hits"]: third}
+            keys = list(all.keys())
+            outputType = ""
+            if first["hits"] >= second["hits"]:
+                consoleName = first["operation"]["label"]
+                outputType = first["operation"]["outputs"][0]
+            else:
+                consoleName = second["operation"]["label"]
+                outputType = second["operation"]["outputs"][0]
+            params = {}
+            for input in operation['inputs']:
+                if input['optional'] == False:
+                    if "_to_" not in input['value'] and (input['type'] == 'geom' or input['type'] == 'coverage'):
+                        inputs[input['name'] + str(operation["id"])] = {
+                            "values": {
+                                "pos": {
+                                    "values": {
+                                        "x": operation["metadata"]["position"][0],
+                                        "y": operation["metadata"]["position"][1]
+                                    },
+                                    "class": "point"
+                                },
+                                "param": {
+                                    "values": {
+                                        "isAdvanced": False,
+                                        "name": input['name'] + str(operation["id"]),
+                                        "default": "",
+                                        "value": "",
+                                        "exported": "",
+                                        "hidden": False,
+                                        "optional": input['optional'],
+                                        "description": input['description']
+                                    },
+                                    "class": "processing.core.parameters.ParameterRaster" if input[
+                                        'type'] == "coverage" else "processing.core.parameters.ParameterVector"
+                                }
+                            },
+                            "class": "processing.modeler.ModelerAlgorithm.ModelerParameter"
+                        }
+                        if input['type'] == "coverage":
+                            inputs[input['name'] + str(operation["id"])]["values"]["param"]["values"][
+                                "showSublayersDialog"] = True
+                            if "GRIDS" in params:
+                                grids = params["GRIDS"]
+                                grids.append({
+                                    "values": {
+                                        "name": input['name'] + str(operation["id"])
+                                    },
+                                    "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                                })
+                                params["GRIDS"] = grids
+                            else:
+                                params["_RESAMPLING"] = 3
+                                params["GRIDS"] = [
+                                    {
+                                        "values": {
+                                            "name": input['name'] + str(operation["id"])
+                                        },
+                                        "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                                    }
+                                ]
+                        elif input['type'] == "geom":
+                            inputs[input['name'] + str(operation["id"])
+                                   ]["values"]["param"]["values"]["shapetype"] = [-1]
+                            params["INPUT_LAYER"] = {
+                                "values": {
+                                    "name": input['name'] + str(operation["id"])
+                                },
+                                "class": "processing.modeler.ModelerAlgorithm.ValueFromInput"
+                            }
+                    elif "_to_" not in input['value'] and (input['type'] != 'geom' and input['type'] != 'coverage'):
+                        # if input["identifier"] == "":
+                        params[input["identifier"].upper()] = input["value"]
+                    if "_to_" in input['value']:
+                        fromOperID = input["value"].split("_to_")[0]
+                        fromOper = Util.getOperationByID(
+                            fromOperID, workflowJSON['workflows'][0]['operations'])
+                        # If output is coverage
+                        if outputType == 'coverage':
+                            if "GRIDS" in params:
+                                grids = params["GRIDS"]
+                                grids.append({
+                                    "values": {
+                                        "alg": fromOper['metadata']['longname'] + str(fromOper["id"]),
+                                        "output": fromOper['outputs'][0]['name'] + str(fromOper["id"])
+                                    },
+                                    "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                                })
+                                params["GRIDS"] = grids
+                            else:
+                                params["_RESAMPLING"] = 3
+                                params["GRIDS"] = [
+                                    {
+                                        "values": {
+                                            "alg": fromOper['metadata']['longname'] + str(fromOper["id"]),
+                                            "output": fromOper['outputs'][0]['name'] + str(fromOper["id"])
+                                        },
+                                        "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                                    }
+                                ]
+                        elif outputType == 'geom':
+                            params["INPUT_LAYER"] = {
+                                "values": {
+                                    "alg": fromOper['metadata']['longname'] + str(fromOper["id"]),
+                                    "output": fromOper['outputs'][0]['name'] + str(fromOper["id"])
+                                },
+                                "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                            }
+                        else:  # Just because there is no ouput datatype, assume it is a geom field
+                            params["INPUT_LAYER"] = {
+                                "values": {
+                                    "alg": fromOper['metadata']['longname'] + str(fromOper["id"]),
+                                    "output": fromOper['outputs'][0]['name'] + str(fromOper["id"])
+                                },
+                                "class": "processing.modeler.ModelerAlgorithm.ValueFromOutput"
+                            }
+
+                else:
+                    # params[input["identifier"].upper()] = input["value"]
+                    pass
+
+            outputs = {}
+            for output in operation['outputs']:
+                if output['type'] == 'geom' or outputType == 'geom':
+                    outputs['OUTPUT_LAYER'] = {
+                        "values": {
+                            "description": output['description'],
+                            "pos": {
+                                "values": {
+                                    "x": operation["metadata"]["position"][0],
+                                    "y": operation["metadata"]["position"][1]
+                                },
+                                "class": "point"
+                            }
+                        },
+                        "class": "processing.modeler.ModelerAlgorithm.ModelerOutput"
+                    }
+                elif output['type'] == 'coverage' or outputType == 'coverage':
+                    outputs["RESULT"] = {
+                        "values": {
+                            "description": output['description'],
+                            "pos": {
+                                "values": {
+                                    "x": operation["metadata"]["position"][0],
+                                    "y": operation["metadata"]["position"][1]
+                                },
+                                "class": "point"
+                            }
+                        },
+                        "class": "processing.modeler.ModelerAlgorithm.ModelerOutput"
+                    }
+
+            longname = operation['metadata']['longname'] + str(operation["id"])
+            algos[longname] = {
+                "values": {
+                    "name": longname,
+                    "paramsFolded": True,
+                    "outputs": outputs,
+                    "outputsFolded": True,
+                    "pos": {
+                        "values": {
+                            "x": operation["metadata"]["position"][0],
+                            "y": operation["metadata"]["position"][1]
+                        },
+                        "class": "point"
+                    },
+                    "dependencies": [],
+                    "params": params,
+                    "active": True,
+                    "consoleName": consoleName,
+                    "description": operation['metadata']['description']
+                },
+                "class": "processing.modeler.ModelerAlgorithm.Algorithm"
+            }
+
+        values["inputs"] = inputs
+        # Description or Help Information
+        values["helpContent"] = {}
+        # Dont seem to know
+        values["group"] = workflowJSON['workflows'][0]['metadata']['longname']
+        values["name"] = workflowJSON['workflows'][0]['metadata']['longname']
+        # Algorithm or processes
+        values["algs"] = algos
+        qgisJSON["values"] = values
+        qgisJSON["class"] = "processing.modeler.ModelerAlgorithm.ModelerAlgorithm"
+
+        return json.dumps(qgisJSON)
+
+    @staticmethod
+    def IlwisWorkflowToPIW(jsonData):
+        operations = jsonData['workflows'][0]['operations']
+        connections = jsonData['workflows'][0]['connections']
+        for connection in connections:
+            value = str(connection["fromOperationID"]) + \
+                "_to_" + str(connection["toParameterID"])
+            index = Util.getOperationIndex(
+                connection["toOperationID"], operations)
+            jsonData['workflows'][0]['operations'][index]['inputs'][connection["toParameterID"]]["value"] = value
+        i = 0
+        for operation in operations:
+            jsonData['workflows'][0]['operations'][i]["metadata"]["url"] = "QGIS"
+            j = 0
+            for input in operation['inputs']:
+                jsonData['workflows'][0]['operations'][i]['inputs'][j]['identifier'] = \
+                    jsonData['workflows'][0]['operations'][i]['inputs'][j]['name']
+                if input['type'] == 'map' or input['type'] == 'coverage' or input['type'] == 'raster' or input[
+                        'type'] == 'RasterCoverage':
+                    jsonData['workflows'][0]['operations'][i]['inputs'][j]['type'] = 'coverage'
+                elif input['type'] == 'feature' or input['type'] == 'table' or input['type'] == 'geometry' or input[
+                        'type'] == 'PolygonCoverage':
+                    jsonData['workflows'][0]['operations'][i]['inputs'][j]['type'] = 'geom'
+                j = j + 1
+            j = 0
+            for output in operation['outputs']:
+                if output['type'] == 'map' or output['type'] == 'coverage' or output['type'] == 'raster' or output[
+                        'type'] == 'RasterCoverage':
+                    jsonData['workflows'][0]['operations'][i]['outputs'][j]['type'] = 'coverage'
+
+                elif output['type'] == 'feature' or output['type'] == 'table' or output['type'] == 'geometry' or output[
+                        'type'] == 'PolygonCoverage':
+                    jsonData['workflows'][0]['operations'][i]['outputs'][j]['type'] = 'geom'
+                j = j + 1
+
+            i = i + 1
+        return json.dumps(jsonData)
+
+    @staticmethod
+    def QgisWorkflowToPIW(jsonData):
+        def extractNumericsfromString(string):
+            if len(string) == 0:
+                return string
+            else:
+                num = string[len(string) - 1]
+                if num in "0 1 2 3 4 5 6 7 8 9":
+                    string = string[0:len(string) - 1]
+                    return extractNumericsfromString(string)
+                else:
+                    return string
+        workflows = {}
+        workflow = {}
+        workflow["id"] = 0
+
+        workflow["metadata"] = {
+            "longname": jsonData["values"]["name"]
+        }
+        inputItems = jsonData["values"]["inputs"]
+        algos = jsonData["values"]["algs"]
+        i = 0
+        operations = []
+        for key in algos:
+            operation = {}
+            algo = algos[key]
+            operation["id"] = i
+            params = algo["values"]["params"]
+            count = 0
+            inputs = []
+            # Loop through the input parameters assigne to the algorithm
+            for param in params:
+                input = {}
+                # Check if the input is of type list or dict
+                if type(params[param]) == list:
+                    count = count + len(params[param])
+                    # If parameters are list, loop through
+                    for item in params[param]:
+                        value = ""
+                        description = ""
+                        optional = True
+                        datatype = "text"
+                        name = ""
+                        url = ""
+                        identifier = ""
+                        # Check if input is from connection
+                        if item['class'] == "processing.modeler.ModelerAlgorithm.ValueFromInput":
+                            description = inputItems[item["values"]["name"]
+                                                     ]["values"]["param"]["values"]["description"]
+                            optional = inputItems[item["values"]["name"]
+                                                  ]["values"]["param"]["values"]["optional"]
+                            if inputItems[item["values"]["name"]]["values"]["param"][
+                                    "class"] == "processing.core.parameters.ParameterRaster":
+                                datatype = "coverage"
+                                identifier = datatype
+                            if inputItems[item["values"]["name"]]["values"]["param"][
+                                    "class"] == "processing.core.parameters.ParameterVector":
+                                datatype = "geom"
+                                identifier = "features"
+                            name = item["values"]["name"]
+                        else:
+                            url = item["values"]["alg"]
+                            value = url
+                            name = item["values"]["output"]
+                        inputs.append({
+                            "id": len(inputs),
+                            "name": name,
+                            "url": "",
+                            "value": value,
+                            "description": description,
+                            "type": datatype,
+                            "identifier": name if identifier == "" else identifier,
+                            "optional": optional
+                        })
+                elif type(params[param]) == dict:
+                    value = ""
+                    description = ""
+                    optional = True
+                    datatype = "text"
+                    name = ""
+                    identifier = ""
+                    # If the input is passed during execution time
+                    if params[param]['class'] == "processing.modeler.ModelerAlgorithm.ValueFromInput":
+                        name = params[param]['values']['name']
+                        description = inputItems[name]["values"]["param"]["values"]["description"]
+                        optional = inputItems[name]["values"]["param"]["values"]["optional"]
+                        # Is input of raster type
+                        if inputItems[name]["values"]["param"]["class"] == "processing.core.parameters.ParameterRaster":
+                            datatype = "coverage"
+                            identifier = "coverage"
+                        # Is input of Vector type
+                        if inputItems[name]["values"]["param"]["class"] == "processing.core.parameters.ParameterVector":
+                            datatype = "geom"
+                            identifier = "features"
+
+                    # The input is passed from output of another operation
+                    else:
+                        name = params[param]["values"]["alg"]
+                        value = name
+                        datatype = "geom"
+                        optional = False
+                    inputs.append({
+                        "id": len(inputs),
+                        "name": param,
+                        "value": value,
+                        "url": "",
+                        "description": description,
+                        "type": datatype,
+                        "identifier": param if identifier == "" else identifier,
+                        "optional": optional
+                    })
+                else:
+                    # The input is not attached at run time or from output of another operation
+                    # Not possible to know the type and optional values of the input
+                    # These are given default values
+                    inputs.append({
+                        "id": len(inputs),
+                        "name": param,
+                        "value": params[param],
+                        "description": "",
+                        "type": "text",
+                        "identifier": param,
+                        "url": "",
+                        "optional": True
+                    })
+                    count = count + 1
+
+            outputs = []
+            if len(algo["values"]["outputs"]) > 0:
+                if type(algo["values"]["outputs"]) == dict:
+                    for output in algo["values"]["outputs"]:
+                        outputs.append({
+                            "id": len(outputs),
+                            "name": output,
+                            "value": output,
+                            "description": algo["values"]["outputs"][output]["values"]["description"],
+                            "type": Util.getOperationByLabel("QGIS", algo["values"]["consoleName"])["outputs"][0],
+                            "identifier": "result",
+                            "url": ""
+                        })
+                if type(algo["values"]["outputs"]) == list:
+                    for output in algo["values"]["outputs"]:
+                        outputs.append({
+                            "id": len(outputs),
+                            "name": output["values"]["name"],
+                            "value": output["values"]["name"],
+                            "type": Util.getOperationByLabel("QGIS", algo["values"]["consoleName"])["outputs"][0],
+                            "identifier": "result",
+                            "description": "result",
+                            "url": ""
+                        })
+            else:
+                outputs.append({
+                    "id": len(outputs),
+                    "name": "result",
+                    "value": "result",
+                    "type": Util.getOperationByLabel("QGIS", algo["values"]["consoleName"])["outputs"][0],
+                    "identifier": "result",
+                    "description": "result",
+                    "url": ""
+                })
+            metadata = {
+                "longname": key,
+                "label": algo["values"]["consoleName"],
+                "url": "",
+                "resource": "",
+                "description": algo["values"]["description"],
+                "inputparametercount": len(inputs),
+                "outputparametercount": len(outputs),
+                "position": [
+                    algo["values"]["pos"]["values"]["x"],
+                    algo["values"]["pos"]["values"]["y"]
+                ]
+            }
+            operation["metadata"] = metadata
+            operation["inputs"] = inputs
+            operation["outputs"] = outputs
+            operations.append(operation)
+            i = i + 1
+
+        workflow["operations"] = operations
+        workflows["workflows"] = [workflow]
+
+        connections = []
+        # from operation
+        i = 0
+        operA = operations
+        for operation in workflow["operations"]:
+            # to operation
+            for oper in operations:
+                # to parameter
+                j = 0
+                for input in operation["inputs"]:
+                    if input["value"] == oper["metadata"]["longname"]:
+                        workflow["operations"][i]["inputs"][j]["value"] = str(
+                            oper["id"]) + "_to_" + str(input["id"])
+                        connections.append({
+                            "fromOperationID": oper["id"],
+                            "toOperationID": operation["id"],
+                            "fromParameterID": 0,
+                            "toParameterID": input["id"]
+                        })
+                    j = j + 1
+            i = i + 1
+
+        workflow["connections"] = connections
+
+        # Order inputs since QGIS does not keep the order of inputs
+        # First in the sequence is the connected inputs (from output of other operations)
+        # Followed by the geoms
+        i = 0
+        for operation in workflow["operations"]:
+            inputs = []
+            inputNonConn = []
+            for input in operation["inputs"]:
+                if "_to_" in str(input["value"]):
+                    inputs.append(input)
+                else:
+                    inputNonConn.append(input)
+            nonGeomRas = []
+            for input in inputNonConn:
+                if input['type'] == 'geom' or input['type'] == 'coverage':
+                    inputs.append(input)
+                else:
+                    nonGeomRas.append(input)
+            inputs.extend(nonGeomRas)
+            workflow["operations"][i]["inputs"] = inputs
+            i = i + 1
+
+        # Cleaning
+        # Remove the numerics at the end of the operation and input identifiers
+        # These numerics were added to make the names and identifiers unique
+        i = 0
+        for operation in workflow["operations"]:
+            longname = extractNumericsfromString(
+                operation["metadata"]["longname"])
+            workflow["operations"][i]["metadata"]["longname"] = longname
+            j = 0
+            for input in operation["inputs"]:
+                name = extractNumericsfromString(input["name"])
+                identifier = extractNumericsfromString(input["identifier"])
+                workflow["operations"][i]["inputs"][j]["name"] = name
+                workflow["operations"][i]["inputs"][j]["identifier"] = identifier
+
+                if "_to_" in str(input['value']):
+                    workflow["operations"][i]["inputs"][j]["value"] = input['value'].split("_to_")[
+                        0] + "_to_" + str(j)
+                j = j + 1
+            i = i + 1
+
+        return json.dumps(workflows)
+
+    @staticmethod
+    def searchOperation(tool, searchString):
+        with open(settings.STATIC_ROOT + os.sep +
+                  "operations.json") as f:
+            json_data = f.read()
+            operations = json.loads(json_data)[tool]
+            max = 0
+            oper = None
+            for operation in operations:
+                count = 0
+                for keyword in operation["keywords"]:
+                    if keyword in searchString:
+                        count = count + 1
+                if count > max:
+                    max = count
+                    oper = operation
+            return {"hits": max, "operation": oper}

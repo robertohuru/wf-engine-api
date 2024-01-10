@@ -29,10 +29,12 @@ class WpsCapabilityViewSet(ViewSet):
         url = request.GET.get("url")
         dtype = request.GET.get("resource")
         identifier = request.GET.get("identifier")
+        response = None
         if dtype == "ILWIS":
             response = json.loads(requests.get(url).text)
         else:
-            response = Util.getWpsCapacilities(url, identifier)
+            if identifier is not None:
+                response = Util.getWpsCapacilities(url, identifier)
         if response is None:
             records = {"success": False, "operation": None}
         else:
@@ -157,7 +159,21 @@ class ServerCapabilitiesViewSet(ViewSet):
     serializer_class = ServerCapabilitiesSerializer
 
     def list(self, request):
-        servers = Server.objects.filter(enabled=True)
+        url = request.GET.get("url")
+        dtype = request.GET.get("type")
+        name = request.GET.get("name")
+        is_process = request.GET.get("type", False)
+
+        if url is None:
+            servers = Server.objects.filter(enabled=True)
+        else:
+            server = Server()
+            server.url = url
+            server.type = dtype
+            server.name = name
+            server.is_process = is_process
+
+            servers = [server]
 
         results = []
         for server in servers:
@@ -263,3 +279,47 @@ class ExecutionViewSet(ViewSet):
                 "type": output["type"]
             })
         return Response(results, status=200)
+
+    @action(detail=False, methods=['post'], name='Download workflow')
+    def download(self, request):
+        package = request.POST.get("package")
+        workflow = request.POST.get("workflow")
+        if not workflow:
+            return Response({"message": "Workflow required"}, status=500)
+        workflowJSON = json.loads(workflow)
+        if package is None:
+            package = 'QGIS'
+
+        # if package == "ILWIS":
+        #     print(workflow)
+        if package == "QGIS":
+            result = Util.piwToQgisWorkflow(workflowJSON)
+            return Response(result, status=200)
+        return Response(workflow, status=200)
+
+    @action(detail=False, methods=['post'], name='Upload workflow')
+    def upload(self, request):
+        package = request.POST.get("package")
+        workflow = request.POST.get("workflow")
+
+        url = request.POST.get("url")
+        if not workflow and not url:
+            return Response({"message": "Workflow required"}, status=500)
+
+        if url:
+            req = requests.get(url)
+            if req.status_code > 200:
+                return Response({"message": "UR: not found"}, status=404)
+            workflow = req.text
+        workflowJSON = json.loads(workflow)
+        if package is None:
+            package = 'QGIS'
+
+        if package == "ILWIS":
+            result = Util.IlwisWorkflowToPIW(workflowJSON)
+            return Response(result, status=200)
+        elif package == "QGIS":
+            result = Util.QgisWorkflowToPIW(workflowJSON)
+            return Response(result, status=200)
+        else:
+            return Response(workflowJSON, status=200)

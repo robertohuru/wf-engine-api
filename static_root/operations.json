@@ -1,0 +1,63 @@
+{
+    "QGIS": [
+        {
+            "name": "Raster difference",
+            "label": "saga:griddifference",
+            "inputs" : ["coverage", "coverage", "numeric"],
+            "description": "Raster difference",
+            "keywords" : ["subtract", "difference", "minus"],
+            "outputs": ["coverage"]
+        },
+        {
+            "name": "Raster division",
+            "label": "saga:griddivision",
+            "inputs" : ["coverage", "coverage", "numeric"],
+            "description": "Raster division",
+            "keywords" : ["divide", "division", "quotient"],
+            "outputs": ["coverage"]
+        },
+        {
+            "name": "Raster product",
+            "label": "saga:gridsproduct",
+            "inputs" : ["coverage", "coverage", "numeric"],
+            "description": "Raster product",
+            "keywords" : ["product", "multiply", "times"],
+            "outputs": ["coverage"]
+        },
+        {
+            "name": "Rasters sum",
+            "label": "saga:gridssum",
+            "inputs" : ["coverage", "coverage", "numeric"],
+            "description": "Rasters sum",
+            "keywords" : ["sum", "add", "combine"],
+            "outputs": ["coverage"]
+        },
+        {
+            "name" :"Raster Calculator",
+            "label": "saga:rastercalculator",
+            "inputs" : ["coverage", "coverage", "text"],
+            "description": "Rasters Calculator",
+            "keywords" : ["formular", "mapcalc", "expression"],
+            "outputs": ["coverage"]
+        },
+        {
+            "name": "Polygon centroids",
+            "label": "qgis:polygoncentroids",
+            "inputs" : ["geom"],
+            "description": "Polygon centroids",
+            "keywords" : ["centroid", "center", "middle"],
+            "outputs": ["geom"]
+        },
+        {
+            "name": "Buffer vectors",
+            "label": "gdalogr:buffervectors",
+            "inputs" : ["geom", "numeric"],
+            "description": "Buffer vectors",
+            "keywords" : ["buffer", "buffering"],
+            "outputs": ["geom"]
+        }
+    ],
+    "ILWIS": [
+        
+    ]
+}

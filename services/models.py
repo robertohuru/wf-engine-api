@@ -11,5 +11,7 @@ class Server(models.Model):
     is_process = models.BooleanField(null=True, default=True)
     url = models.CharField(max_length=255, blank=False, null=False)
 
+    enabled = models.BooleanField(default=True, null=True)
+
     class Meta:
         db_table = 'db_server'

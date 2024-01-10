@@ -140,8 +140,7 @@ class ServerCapabilitiesViewSet(ViewSet):
     serializer_class = ServerCapabilitiesSerializer
 
     def list(self, request):
-        name = request.GET.get("name", "University of Twente WPS")
-        servers = Server.objects.all()
+        servers = Server.objects.filter(enabled=True)
 
         results = []
         for server in servers:

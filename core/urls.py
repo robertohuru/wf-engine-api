@@ -5,6 +5,7 @@ from django.conf import settings
 
 urlpatterns = [
     path("services/", include("services.urls")),
+    path("auth/", include("account.urls")),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

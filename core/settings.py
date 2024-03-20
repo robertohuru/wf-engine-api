@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib3.util import parse_url
 from dotenv import load_dotenv
 from django.contrib.messages import constants as messages
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "channels",
     "rest_framework",
+    "rest_framework_simplejwt",
     "account",
     "services"
 ]
@@ -253,3 +255,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1",
     "http://130.89.6.150"
 ]
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('JWT',),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=180),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=50),
+}

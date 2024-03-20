@@ -2,6 +2,7 @@ Django
 djangorestframework>=3.13.1
 PyJWT>=2.3.0
 django-cors-headers>=3.11.0
+djangorestframework-simplejwt
 xmltodict
 requests
 python-dotenv

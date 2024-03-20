@@ -163,6 +163,7 @@ class ServerCapabilitiesViewSet(ViewSet):
         dtype = request.GET.get("type")
         name = request.GET.get("name")
         is_process = request.GET.get("type", False)
+        limit = 100
 
         if url is None:
             servers = Server.objects.filter(enabled=True)
@@ -177,58 +178,56 @@ class ServerCapabilitiesViewSet(ViewSet):
 
         results = []
         for server in servers:
-            if server.is_process:
-                if server.type == "WPS":
-                    response = Util.getWpsProcesses(server.url, 100,  "gs:")
-                    if response:
-                        results.append(
-                            {
-                                "name": server.name,
-                                "records": response,
-                                "is_process": True,
-                                "type": "WPS",
-                                "url": server.url
-                            }
-                        )
-            else:
-                if server.type == "WCS":
-                    response = Util.getWcsCapabilities(server.url, 100)
-                    if response:
-                        results.append(
-                            {
-                                "name": server.name,
-                                "records": response,
-                                "is_process": False,
-                                "type": "WCS",
-                                "url": server.url
-                            }
-                        )
-                elif server.type == "WFS":
-                    response = Util.getWfsCapabilities(server.url, 100)
-                    if response:
-                        results.append(
-                            {
-                                "name": server.name,
-                                "records": response,
-                                "is_process": False,
-                                "type": "WFS",
-                                "url": server.url
-                            }
-                        )
-                elif server.type == "SOS":
-                    response = Util.getSosCapabilities(server.url, 100)
-                    if response:
-                        results.append(
-                            {
-                                "name": server.name,
-                                "records": response,
-                                "is_process": False,
-                                "type": "SOS",
-                                "url": server.url
-                            }
-                        )
+            if server.is_process and server.type == "WPS":
+                response = Util.getWpsProcesses(server.url, limit,  "gs:")
+                if response:
+                    results.append(
+                        {
+                            "name": server.name,
+                            "records": response,
+                            "is_process": True,
+                            "type": "WPS",
+                            "url": server.url
+                        }
+                    )
+            elif server.type == "WCS":
+                response = Util.getWcsCapabilities(server.url, limit)
+                if response:
+                    results.append(
+                        {
+                            "name": server.name,
+                            "records": response,
+                            "is_process": False,
+                            "type": "WCS",
+                            "url": server.url
+                        }
+                    )
+            elif server.type == "WFS":
+                response = Util.getWfsCapabilities(server.url, limit)
+                if response:
+                    results.append(
+                        {
+                            "name": server.name,
+                            "records": response,
+                            "is_process": False,
+                            "type": "WFS",
+                            "url": server.url
+                        }
+                    )
+            elif server.type == "SOS":
+                response = Util.getSosCapabilities(server.url, 100)
+                if response:
+                    results.append(
+                        {
+                            "name": server.name,
+                            "records": response,
+                            "is_process": False,
+                            "type": "SOS",
+                            "url": server.url
+                        }
+                    )
         serializer = ServerCapabilitiesSerializer(instance=results, many=True)
-        return Response(serializer.data)
+        return Response(results)
 
 
 class GeoJsonViewSet(ViewSet):

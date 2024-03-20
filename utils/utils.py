@@ -168,6 +168,9 @@ class Util:
             return None
         features = []
         jsonResponse = xmltodict.parse(results.text)
+        if 'wfs:WFS_Capabilities' not in jsonResponse:
+            return None
+
         for row in jsonResponse['wfs:WFS_Capabilities']['FeatureTypeList']['FeatureType']:
             if len(features) > limit:
                 continue
@@ -200,6 +203,8 @@ class Util:
             return None
         coverages = []
         jsonResponse = xmltodict.parse(results.text)
+        if 'wcs:CoverageDescription' not in jsonResponse:
+            return None
         for row in jsonResponse['wcs:CoverageDescription']['wcs:CoverageOffering']:
             if len(coverages) > limit:
                 continue

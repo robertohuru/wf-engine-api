@@ -17,6 +17,7 @@ from django.conf import settings
 import os
 import rasterio
 import numpy as np
+from osgeo import osr, ogr
 min_attributes = ('scheme', 'netloc')
 
 
@@ -378,17 +379,29 @@ class Util:
 
         transformed_features = []
         features = geojson.get("features")
+
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(int(srid))
+
+        target = osr.SpatialReference()
+        target.ImportFromEPSG(int(toSRID))
+
+        transform = osr.CoordinateTransformation(source, target)
+
         for feature in features:
-            geometry = GEOSGeometry(json.dumps(
-                feature.get("geometry")), srid=int(srid))
-            geometry.transform(toSRID)
-            feature['geometry'] = geometry.json
+            geometry = ogr.CreateGeometryFromJson(
+                json.dumps(feature.get("geometry")))
+            # geometry = GEOSGeometry(json.dumps(
+            #    feature.get("geometry")), srid=int(srid))
+            geometry.Transform(transform)
+            # feature['geometry'] = geometry.json
+            feature['geometry'] = json.loads(geometry.ExportToJson())
             transformed_features.append(feature)
 
         geojson['features'] = transformed_features
         return geojson
 
-    @staticmethod
+    @ staticmethod
     def executeWorkflow(workflow):
         operations = workflow["operations"]
         orderedIDs = Util.getExecutionOrder(workflow)
@@ -409,7 +422,7 @@ class Util:
             j = j + 1
         return result
 
-    @staticmethod
+    @ staticmethod
     def getExecutionOrder(workflow):
         operations = workflow["operations"]
         connections = workflow["connections"]
@@ -429,7 +442,7 @@ class Util:
             Util.recursiveF(connections, orderID, id)
         return orderID
 
-    @staticmethod
+    @ staticmethod
     def recursiveF(connections, orderID, id):
         for connection in connections:
             if connection["toOperationID"] == id:
@@ -440,7 +453,7 @@ class Util:
                                 connection["fromOperationID"])
         return orderID
 
-    @staticmethod
+    @ staticmethod
     def getOperationByID(id, operations):
         oper = []
         for operation in operations:
@@ -449,7 +462,7 @@ class Util:
                 break
         return oper
 
-    @staticmethod
+    @ staticmethod
     def getOperationIndex(id, operations):
         j = None
         for i in range(0, len(operations)):
@@ -458,7 +471,7 @@ class Util:
                 break
         return j
 
-    @staticmethod
+    @ staticmethod
     def getOperationByLabel(tool, label):
         with open(settings.STATIC_ROOT + os.sep +
                   "operations.json") as f:
@@ -470,7 +483,7 @@ class Util:
                     oper = operation
             return oper
 
-    @staticmethod
+    @ staticmethod
     def executeOperation(operation):
         output = ""
         if operation["metadata"]["resource"] == "WPS":
@@ -506,7 +519,7 @@ class Util:
                 output = output
         return output
 
-    @staticmethod
+    @ staticmethod
     def executeREST(operation):
         headers = {'content-type': 'application/json'}
         results = requests.post(
@@ -517,7 +530,7 @@ class Util:
             results = json.loads(results.text)
         return results
 
-    @staticmethod
+    @ staticmethod
     def executeWPS(operation, type='application/json'):
         root = Util.wpsHead()
         label = operation['metadata']['label']
@@ -571,7 +584,7 @@ class Util:
         if response.status_code < 300:
             return response.json() if operation['outputs'][0]['type'] == 'geom' else response.text
 
-    @staticmethod
+    @ staticmethod
     def executeWPSREST(operation):
         body = {}
         body["Identifier"] = operation['metadata']['label']
@@ -649,7 +662,7 @@ class Util:
             response = requests.get(responseOutput)
             return response.json()["Result"]["Output"][0]
 
-    @staticmethod
+    @ staticmethod
     def executeILWIS(operation):
         label = operation['metadata']['label']
         maps = []
@@ -670,7 +683,7 @@ class Util:
             results = results.text
         return results
 
-    @staticmethod
+    @ staticmethod
     def bpmnHead():
         root = Element('bpmn2:definitions')
         root.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
@@ -687,7 +700,7 @@ class Util:
         root.set('targetNamespace', 'http://org.eclipse.bpmn2/default/process')
         return root
 
-    @staticmethod
+    @ staticmethod
     def wpsHead():
         root = Element('wps:Execute')
         root.set('service', 'WPS')
@@ -712,7 +725,7 @@ class Util:
         reparsed = minidom.parseString(rough_string)
         return reparsed.toprettyxml(indent="  ")
 
-    @staticmethod
+    @ staticmethod
     def publishRaster(operation):
         file = Util.downloadRasterFile(operation["inputs"][0]["value"])
         file = file["file"]
@@ -762,14 +775,14 @@ class Util:
                 os.remove(config_file)
                 return {"extent": extent, "layer": workspace + ":" + os.path.splitext(base)[0]}
 
-    @staticmethod
+    @ staticmethod
     def downloadRasterFile(url):
         path = settings.MEDIA_ROOT + os.path.sep + \
             Util.id_generator() + str(int(time.time())) + ".tif"
         urllib.request.urlretrieve(url, path)
         return {"file": path}
 
-    @staticmethod
+    @ staticmethod
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
         """
         Generate unique names for files
@@ -779,14 +792,14 @@ class Util:
         file = ''.join(random.choice(chars) for _ in range(size))
         return ("ds" + file).lower()
 
-    @staticmethod
+    @ staticmethod
     def is_url(url, qualifying=None):
         qualifying = min_attributes if qualifying is None else qualifying
         token = urlparse(url)
         return all([getattr(token, qualifying_attr)
                     for qualifying_attr in qualifying])
 
-    @staticmethod
+    @ staticmethod
     def generateSLD(file, sldName):
         with rasterio.open(file) as ds:
             pixArr = ds.read(1)
@@ -850,7 +863,7 @@ class Util:
             sldFile.close()
             return settings.MEDIA_ROOT + os.path.sep + sldName + ".xml"
 
-    @staticmethod
+    @ staticmethod
     def piwToQgisWorkflow(workflowJSON):
         qgisJSON = {}
         values = {}
@@ -866,7 +879,7 @@ class Util:
             third = Util.searchOperation(
                 "QGIS", operation['metadata']['label'].lower())
 
-            all = {first["hits"]: first, second["hits"]                   : second, third["hits"]: third}
+            all = {first["hits"]: first, second["hits"]: second, third["hits"]: third}
             keys = list(all.keys())
             outputType = ""
             if first["hits"] >= second["hits"]:
@@ -1054,7 +1067,7 @@ class Util:
 
         return json.dumps(qgisJSON)
 
-    @staticmethod
+    @ staticmethod
     def IlwisWorkflowToPIW(jsonData):
         operations = jsonData['workflows'][0]['operations']
         connections = jsonData['workflows'][0]['connections']
@@ -1069,8 +1082,7 @@ class Util:
             jsonData['workflows'][0]['operations'][i]["metadata"]["url"] = "QGIS"
             j = 0
             for input in operation['inputs']:
-                jsonData['workflows'][0]['operations'][i]['inputs'][j]['identifier'] = \
-                    jsonData['workflows'][0]['operations'][i]['inputs'][j]['name']
+                jsonData['workflows'][0]['operations'][i]['inputs'][j]['identifier'] = jsonData['workflows'][0]['operations'][i]['inputs'][j]['name']
                 if input['type'] == 'map' or input['type'] == 'coverage' or input['type'] == 'raster' or input[
                         'type'] == 'RasterCoverage':
                     jsonData['workflows'][0]['operations'][i]['inputs'][j]['type'] = 'coverage'
@@ -1092,7 +1104,7 @@ class Util:
             i = i + 1
         return json.dumps(jsonData)
 
-    @staticmethod
+    @ staticmethod
     def QgisWorkflowToPIW(jsonData):
         def extractNumericsfromString(string):
             if len(string) == 0:
@@ -1344,7 +1356,7 @@ class Util:
 
         return json.dumps(workflows)
 
-    @staticmethod
+    @ staticmethod
     def searchOperation(tool, searchString):
         with open(settings.STATIC_ROOT + os.sep +
                   "operations.json") as f:

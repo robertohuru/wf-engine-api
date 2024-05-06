@@ -250,6 +250,13 @@ class GeoJsonViewSet(ViewSet):
         response = requests.get(url)
         if response.text == "" or response.status_code > 200:
             return Response({"msg": "No data found"}, status=400)
+        # transformed = response.json()
+        # transformed['crs'] = {
+        #     "type": "name",
+        #     "properties": {
+        #         "name": "urn:ogc:def:crs:EPSG::3857"
+        #     }
+        # }
         transformed = Util.jsonTransform(response.json(), srid)
         results = GeoJsonSerializer(transformed, many=False).data
         return Response(results)

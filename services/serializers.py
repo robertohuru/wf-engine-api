@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from services.models import Server
+from services.models import Server, Workflow, Execution, User, Task, UserServers
 
 
 class WpsCapabilitySerializer(serializers.Serializer):
@@ -48,9 +48,18 @@ class GeoJsonSerializer(serializers.Serializer):
 class ServerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Server
-        fields = ('name', 'type', 'url', 'is_process')
-        extra_kwargs = {'user': {'write_only': True}}
+        fields = ('name', 'type', 'url', 'is_process', 'provider', 'id', 'created')
+        extra_kwargs = {'user': {'write_only': True}, 'id': {'read_only': True}}
 
 
 class ExecutionSerializer(serializers.Serializer):
     worklfow = serializers.JSONField()
+
+
+class WorkflowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Workflow
+        fields = ('id', 'title', 'description',
+                  'executions', 'created', 'updated', 'content')
+        extra_kwargs = {'user': {'write_only': True,
+                                 'required': False}, 'id': {'read_only': True}}

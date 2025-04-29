@@ -2,7 +2,8 @@ from rest_framework import routers
 from services.viewsets import (
     WpsCapabilityViewSet,
     WfsCapabilityViewSet, WcsCapabilityViewSet, SosCapabilityViewSet, ServerViewSet,
-    GeoJsonViewSet, SosObservationsViewSet, ExecutionViewSet, ServerCapabilitiesViewSet
+    GeoJsonViewSet, SosObservationsViewSet, ExecutionViewSet, ServerCapabilitiesViewSet,
+    ProcessViewSet, WorkflowViewSet
 )
 
 routes = routers.DefaultRouter()
@@ -16,7 +17,9 @@ routes.register("servers", ServerViewSet, "list-servers")
 routes.register("server/capabilities",
                 ServerCapabilitiesViewSet, "servers-capabilities")
 routes.register("json", GeoJsonViewSet, "geojson")
-routes.register("process", ExecutionViewSet, "process")
+routes.register("workflow", ExecutionViewSet, "workflow")
+routes.register("models", WorkflowViewSet, "models")
+routes.register("process", ProcessViewSet, "process")
 
 urlpatterns = [
     *routes.urls,

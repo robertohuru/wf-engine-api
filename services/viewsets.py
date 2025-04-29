@@ -1,18 +1,20 @@
 from rest_framework.viewsets import ModelViewSet, ViewSet
 import requests
-import re
+from rest_framework import status
 import json
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from services.serializers import (
     WpsCapabilitySerializer, WfsCapabilitySerializer,
     WcsCapabilitySerializer, SosCapabilitySerializer, SosObservationsSerializer,
-    ServerSerializer, GeoJsonSerializer, ExecutionSerializer, ServerCapabilitiesSerializer
+    ServerSerializer, GeoJsonSerializer, ExecutionSerializer, ServerCapabilitiesSerializer,
+    WorkflowSerializer 
 )
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission, IsAuthenticatedOrReadOnly, IsAuthenticated, SAFE_METHODS, IsAdminUser
 from django.db import connection
 from rest_framework.response import Response
 from utils import Util
-from services.models import Server
+from services.models import Server, Workflow, Execution, User, Task, UserServers
 
 
 class ReadOnly(BasePermission):
@@ -34,7 +36,7 @@ class WpsCapabilityViewSet(ViewSet):
             response = json.loads(requests.get(url).text)
         else:
             if identifier is not None:
-                response = Util.getWpsCapacilities(url, identifier)
+                response = Util.getWpsCapabilities(url, identifier)
         if response is None:
             records = {"success": False, "operation": None}
         else:
@@ -53,7 +55,7 @@ class WpsCapabilityViewSet(ViewSet):
         elif dtype == "GeoServer":
             response = "Geoserver"
         else:
-            response = Util.getWpsCapacilities(url, identifier)
+            response = Util.getWpsCapabilities(url, identifier)
         if not response:
             records = {"success": False, "operation": None}
         else:
@@ -142,16 +144,35 @@ class SosObservationsViewSet(ViewSet):
 
 
 class ServerViewSet(ModelViewSet):
-    http_method_names = ["get"]
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    http_method_names = ["get", "put", "post"]
+    permission_classes = [IsAuthenticated]
     serializer_class = ServerSerializer
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
     def get_queryset(self):
-        return Server.objects.all()
-
+        server_ids = [server.server_id for server in UserServers.objects.filter(user=self.request.user)]
+        return Server.objects.filter(id__in=server_ids)
+    
+    @action(detail=False, methods=['put'], name='Assign Server to user')
+    def assign(self, request):
+        server = request.GET.get("server")
+        user_servers = UserServers.objects.filter(user=request.user, server_id=server)
+        if user_servers.count() == 0:
+            UserServers.objects.get_or_create(
+                server_id=server,
+                user=request.user, 
+                defaults={
+                    "server_id": server,
+                    "user": request.user
+                },
+            )
+        
+        server_ids = [server.server_id for server in UserServers.objects.filter(user=request.user)]
+        serializer = ServerSerializer(instance=Server.objects.filter(id__in=server_ids), many=True)
+        return Response(serializer.data)
+   
 
 class ServerCapabilitiesViewSet(ViewSet):
     http_method_names = ["get"]
@@ -226,8 +247,45 @@ class ServerCapabilitiesViewSet(ViewSet):
                             "url": server.url
                         }
                     )
-        serializer = ServerCapabilitiesSerializer(instance=results, many=True)
+            elif server.type == "STAC":
+                response = Util.getStacCapabilities(server.url, limit)
+                if response:
+                    results.append(
+                        {
+                            "name": server.name,
+                            "records": response,
+                            "is_process": False,
+                            "type": "STAC",
+                            "url": server.url
+                        }
+                    )
+        # serializer = ServerCapabilitiesSerializer(instance=results, many=True)
         return Response(results)
+
+
+class WorkflowViewSet(ModelViewSet):
+    queryset = Workflow.objects.all()
+    http_method_names = ["get", "post", "delete", "patch", "put"]
+    permission_classes = [IsAuthenticated]
+
+    serializer_class = WorkflowSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def get_queryset(self):
+        return Workflow.objects.filter(user=self.request.user)
+    
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'No model IDs provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        models_to_delete = Workflow.objects.filter(id__in=ids, user=request.user)
+        deleted_count = models_to_delete.count()
+        models_to_delete.delete()
+        return Response({'count': deleted_count}, status=status.HTTP_200_OK)
 
 
 class GeoJsonViewSet(ViewSet):
@@ -329,3 +387,22 @@ class ExecutionViewSet(ViewSet):
             return Response(result, status=200)
         else:
             return Response(workflowJSON, status=200)
+
+
+class ProcessViewSet(ViewSet):
+    http_method_names = ["get", "post"]
+    serializer_class = ExecutionSerializer
+
+    def list(self, request):
+        return Response({})
+
+    @action(detail=False, methods=['post'], name='Execute process')
+    def execute(self, request):
+        try:
+            process = json.loads(self.request.body)
+        except json.JSONDecodeError:
+            process = None
+        if process:
+            return Response(Util.executeOperation(process), status=200)
+        else:
+            return Response({"message": "Process required"}, status=500)

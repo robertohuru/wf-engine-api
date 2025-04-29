@@ -40,7 +40,9 @@ ALLOWED_HOSTS = [
     HOSTNAME,
     SITEURL,
     "localhost",
+    "127.0.0.1",
     "http://localhost:8000",
+    "http://localhost:3000",
     "http://130.89.6.150",
     "http://130.89.6.150:8002",
     "130.89.6.150"
@@ -63,7 +65,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "account",
-    "services"
+    "services",
+    "api"
 ]
 
 MIDDLEWARE = [
@@ -138,14 +141,14 @@ USE_L10N = True
 USE_TZ = False
 
 
-STATIC_URL = "/services/static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "static_root"))
 _DEFAULT_STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 STATICFILES_DIRS = os.getenv("STATICFILES_DIRS", _DEFAULT_STATICFILES_DIRS)
 
-MEDIA_URL = "/services/media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
@@ -252,6 +255,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://mara.rangelands.itc.utwente.nl",
     "https://gisedu.itc.utwente.nl",
     "http://localhost",
+    "http://localhost:3000",
     "http://127.0.0.1",
     "http://130.89.6.150"
 ]
@@ -259,12 +263,28 @@ CORS_ALLOWED_ORIGINS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
+    )
 }
 
-SIMPLE_JWT = {
-    'AUTH_HEADER_TYPES': ('JWT',),
+SIMPLE_JWT = {    
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=180),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=50),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,  # your Django secret key
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }

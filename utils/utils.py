@@ -62,7 +62,7 @@ class Util:
         return processes
 
     @staticmethod
-    def getWpsCapacilities(url, identifier):
+    def getWpsCapabilities(url, identifier):
         response = requests.get(
             url + "service=WPS&request=DescribeProcess&identifier=" + identifier)
         response = xmltodict.parse(response.text)
@@ -73,10 +73,14 @@ class Util:
             'id': identifier,
             'metadata': {
                 'label':  identifier,
+                'id': identifier,
+                'url': url,
+                'resource': 'WPS',
             }
         }
 
         inputs = []
+
         if 'ProcessDescription' in b['wps:ProcessDescriptions']:
             if isinstance(b['wps:ProcessDescriptions']['ProcessDescription']['DataInputs']['Input'], dict):
                 inputs = [b['wps:ProcessDescriptions']
@@ -169,20 +173,34 @@ class Util:
             return None
         features = []
         jsonResponse = xmltodict.parse(results.text)
-        if 'wfs:WFS_Capabilities' not in jsonResponse:
-            return None
 
-        for row in jsonResponse['wfs:WFS_Capabilities']['FeatureTypeList']['FeatureType']:
+        root = 'wfs:WFS_Capabilities'
+        if root not in jsonResponse:
+            root = 'WFS_Capabilities'
+            if root not in jsonResponse:
+                return None
+
+        version = jsonResponse[root].get(
+            'ows:ServiceIdentification', {}).get('ows:ServiceTypeVersion')
+        if isinstance(version, list) and len(version) > 0:
+            version = version[0]
+
+        if version:
+            version = "&version=" + version
+        else:
+            version = ''
+
+        for row in jsonResponse[root]['FeatureTypeList']['FeatureType']:
             if len(features) > limit:
                 continue
 
             feature = {}
             if "mapserv" in url:
                 feature['url'] = url + "service=WFS&request=GetFeature&typeName=" + \
-                    row['Name']+"&outputFormat=geojson&srsname=EPSG:3857"
+                    row['Name']+"&outputFormat=geojson&srsname=EPSG:3857" + version
             else:
                 feature['url'] = url + "service=WFS&request=GetFeature&typeName=" + \
-                    row['Name'] + "&outputFormat=application/json"
+                    row['Name'] + "&outputFormat=application/json" + version
             feature['name'] = row['Name']
             feature['title'] = row['Title']
             feature['abstract'] = row['Abstract']
@@ -204,15 +222,30 @@ class Util:
             return None
         coverages = []
         jsonResponse = xmltodict.parse(results.text)
-        if 'wcs:CoverageDescription' not in jsonResponse:
-            return None
-        for row in jsonResponse['wcs:CoverageDescription']['wcs:CoverageOffering']:
+
+        root = 'wcs:CoverageDescription'
+        if root not in jsonResponse:
+            root = 'CoverageDescription'
+            if root not in jsonResponse:
+                return None
+
+        version = jsonResponse[root].get(
+            'ows:ServiceIdentification', {}).get('ows:ServiceTypeVersion')
+        if isinstance(version, list) and len(version) > 0:
+            version = version[0]
+
+        if version:
+            version = "&version=" + version
+        else:
+            version = ''
+
+        for row in jsonResponse[root].get('wcs:CoverageOffering', []):
             if len(coverages) > limit:
                 continue
             coverage = {}
             coverage['name'] = row['wcs:name']
             coverage['url'] = url + "version=2.0.0&service=WCS&request=GetCoverage&coverageId=" + \
-                row['wcs:name'] + "&format=image/geotiff"
+                row['wcs:name'] + "&format=image/geotiff" + version
             coverage['title'] = row['wcs:label']
             coverage['abstract'] = row['wcs:description']
             coverage['defaultCRS'] = row['wcs:lonLatEnvelope']['@srsName']
@@ -352,6 +385,39 @@ class Util:
         return {"obersevations": obersevations, "chartdata": chartData}
 
     @staticmethod
+    def getStacCapabilities(url, limit=100):
+        if url is None:
+            url = "https://earth-search.aws.element84.com/v1"
+
+        results = requests.get(url + "/collections")
+        if results.text == "" or results.status_code > 200:
+            return None
+        jsonResponse = results.json()
+        collections = []
+        for row in jsonResponse.get("collections", []):
+            records = []
+            for key, val in row.get("item_assets", {}).items():
+                if val.get("title") is None:
+                    continue
+                records.append({
+                    "name": val.get("title"),
+                    "asset": key,
+                    "description": val.get("title"),
+                    "title": val.get("title"),
+                    "bands": val.get("eo:bands"),
+
+                })
+            collections.append({
+                'object_id': row["id"],
+                'title': row["title"],
+                'name': row["title"],
+                'description': row["description"],
+                'url': url + "/collections/" + row["id"],
+                'records': records
+            })
+        return collections
+
+    @staticmethod
     def coordinateTransform(coord, fromSRID=4326, toSRID=32736):
         point = Point(coord[0], coord[1], srid=fromSRID)
         point.transform(toSRID)
@@ -366,11 +432,11 @@ class Util:
                 'name').replace(srid, str(toSRID))
             geojson['crs'] = crs
         else:
-            srid = 4326
+            srid = 3857
             geojson['crs'] = {
                 "type": "name",
                 "properties": {
-                    "name": "urn:ogc:def:crs:EPSG::4326"
+                    "name": "urn:ogc:def:crs:EPSG::" + str(srid)
                 }
             }
 
@@ -401,7 +467,7 @@ class Util:
         geojson['features'] = transformed_features
         return geojson
 
-    @ staticmethod
+    @staticmethod
     def executeWorkflow(workflow):
         operations = workflow["operations"]
         orderedIDs = Util.getExecutionOrder(workflow)
@@ -422,7 +488,7 @@ class Util:
             j = j + 1
         return result
 
-    @ staticmethod
+    @staticmethod
     def getExecutionOrder(workflow):
         operations = workflow["operations"]
         connections = workflow["connections"]
@@ -442,7 +508,7 @@ class Util:
             Util.recursiveF(connections, orderID, id)
         return orderID
 
-    @ staticmethod
+    @staticmethod
     def recursiveF(connections, orderID, id):
         for connection in connections:
             if connection["toOperationID"] == id:
@@ -453,7 +519,7 @@ class Util:
                                 connection["fromOperationID"])
         return orderID
 
-    @ staticmethod
+    @staticmethod
     def getOperationByID(id, operations):
         oper = []
         for operation in operations:
@@ -462,7 +528,7 @@ class Util:
                 break
         return oper
 
-    @ staticmethod
+    @staticmethod
     def getOperationIndex(id, operations):
         j = None
         for i in range(0, len(operations)):
@@ -471,7 +537,7 @@ class Util:
                 break
         return j
 
-    @ staticmethod
+    @staticmethod
     def getOperationByLabel(tool, label):
         with open(settings.STATIC_ROOT + os.sep +
                   "operations.json") as f:
@@ -483,7 +549,7 @@ class Util:
                     oper = operation
             return oper
 
-    @ staticmethod
+    @staticmethod
     def executeOperation(operation):
         output = ""
         if operation["metadata"]["resource"] == "WPS":
@@ -519,7 +585,7 @@ class Util:
                 output = output
         return output
 
-    @ staticmethod
+    @staticmethod
     def executeREST(operation):
         headers = {'content-type': 'application/json'}
         results = requests.post(
@@ -530,7 +596,7 @@ class Util:
             results = json.loads(results.text)
         return results
 
-    @ staticmethod
+    @staticmethod
     def executeWPS(operation, type='application/json'):
         root = Util.wpsHead()
         label = operation['metadata']['label']
@@ -584,7 +650,7 @@ class Util:
         if response.status_code < 300:
             return response.json() if operation['outputs'][0]['type'] == 'geom' else response.text
 
-    @ staticmethod
+    @staticmethod
     def executeWPSREST(operation):
         body = {}
         body["Identifier"] = operation['metadata']['label']
@@ -662,7 +728,7 @@ class Util:
             response = requests.get(responseOutput)
             return response.json()["Result"]["Output"][0]
 
-    @ staticmethod
+    @staticmethod
     def executeILWIS(operation):
         label = operation['metadata']['label']
         maps = []
@@ -683,7 +749,7 @@ class Util:
             results = results.text
         return results
 
-    @ staticmethod
+    @staticmethod
     def bpmnHead():
         root = Element('bpmn2:definitions')
         root.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
@@ -700,7 +766,7 @@ class Util:
         root.set('targetNamespace', 'http://org.eclipse.bpmn2/default/process')
         return root
 
-    @ staticmethod
+    @staticmethod
     def wpsHead():
         root = Element('wps:Execute')
         root.set('service', 'WPS')
@@ -725,7 +791,7 @@ class Util:
         reparsed = minidom.parseString(rough_string)
         return reparsed.toprettyxml(indent="  ")
 
-    @ staticmethod
+    @staticmethod
     def publishRaster(operation):
         file = Util.downloadRasterFile(operation["inputs"][0]["value"])
         file = file["file"]
@@ -775,14 +841,14 @@ class Util:
                 os.remove(config_file)
                 return {"extent": extent, "layer": workspace + ":" + os.path.splitext(base)[0]}
 
-    @ staticmethod
+    @staticmethod
     def downloadRasterFile(url):
         path = settings.MEDIA_ROOT + os.path.sep + \
             Util.id_generator() + str(int(time.time())) + ".tif"
         urllib.request.urlretrieve(url, path)
         return {"file": path}
 
-    @ staticmethod
+    @staticmethod
     def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
         """
         Generate unique names for files
@@ -792,14 +858,14 @@ class Util:
         file = ''.join(random.choice(chars) for _ in range(size))
         return ("ds" + file).lower()
 
-    @ staticmethod
+    @staticmethod
     def is_url(url, qualifying=None):
         qualifying = min_attributes if qualifying is None else qualifying
         token = urlparse(url)
         return all([getattr(token, qualifying_attr)
                     for qualifying_attr in qualifying])
 
-    @ staticmethod
+    @staticmethod
     def generateSLD(file, sldName):
         with rasterio.open(file) as ds:
             pixArr = ds.read(1)
@@ -863,7 +929,7 @@ class Util:
             sldFile.close()
             return settings.MEDIA_ROOT + os.path.sep + sldName + ".xml"
 
-    @ staticmethod
+    @staticmethod
     def piwToQgisWorkflow(workflowJSON):
         qgisJSON = {}
         values = {}
@@ -1067,7 +1133,7 @@ class Util:
 
         return json.dumps(qgisJSON)
 
-    @ staticmethod
+    @staticmethod
     def IlwisWorkflowToPIW(jsonData):
         operations = jsonData['workflows'][0]['operations']
         connections = jsonData['workflows'][0]['connections']
@@ -1104,7 +1170,7 @@ class Util:
             i = i + 1
         return json.dumps(jsonData)
 
-    @ staticmethod
+    @staticmethod
     def QgisWorkflowToPIW(jsonData):
         def extractNumericsfromString(string):
             if len(string) == 0:
@@ -1356,7 +1422,7 @@ class Util:
 
         return json.dumps(workflows)
 
-    @ staticmethod
+    @staticmethod
     def searchOperation(tool, searchString):
         with open(settings.STATIC_ROOT + os.sep +
                   "operations.json") as f:

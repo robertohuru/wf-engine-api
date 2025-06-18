@@ -1,6 +1,6 @@
 # WFMS Engine
 
-WFMS Backend built using Python Django
+WFMS Backend built using Python Django.
 
 ## Getting Started
 
